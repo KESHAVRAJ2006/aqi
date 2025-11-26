@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aqi-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aqi
+  template:
+    metadata:
+      labels:
+        app: aqi
+    spec:
+      containers:
+      - name: aqi
+        image: aqi-forecast:local
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+

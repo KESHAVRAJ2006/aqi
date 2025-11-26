@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+scikit-learn
+pandas
+joblib
+pytest
+mlflow
+evidently
+prometheus-client

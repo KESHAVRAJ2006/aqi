@@ -41,8 +41,7 @@ jobs:
       run: |
         echo "${KUBECONFIG_DATA}" | base64 --decode > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
-        kubectl config view --minify
-        kubectl config view     # ✔ FIXED (removed --minify)
+        kubectl config view
 
     - name: Show cluster info
       run: kubectl cluster-info

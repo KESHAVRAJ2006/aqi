@@ -1,0 +1,59 @@
+name: CD - Deploy to Kubernetes
+
+# Trigger:
+# - on push to main (or master)
+# - or optionally when CI workflow completes using workflow_run
+on:
+  push:
+    branches: [ master ]    # change to main if you renamed branch
+  # optional: run after CI workflow completes
+  workflow_run:
+    workflows: ["AQI CI"]   # change to the exact name of your CI workflow
+    types:
+      - completed
+
+env:
+  IMAGE: ${{ secrets.IMAGE_NAME }}   # e.g. username/aqi-forecast
+  IMAGE_TAG: ${{ github.sha }}       # change to 'latest' if you prefer
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Restore kubeconfig
+      env:
+        KUBECONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      run: |
+        echo "$KUBECONFIG_DATA" | base64 --decode > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        kubectl config view --minify
+
+    - name: Show cluster info
+      run: kubectl cluster-info
+
+    - name: Update image in Deployment (rolling update)
+      run: |
+        echo "Updating deployment image to ${IMAGE}:${IMAGE_TAG}"
+        kubectl set image deployment/aqi-deploy aqi=${IMAGE}:${IMAGE_TAG} --record
+        kubectl rollout status deployment/aqi-deploy --timeout=120s
+
+    - name: Post-deploy smoke test
+      run: |
+        SERVICE_URL=$(kubectl get svc aqi-service -o jsonpath='{.spec.clusterIP}')
+        echo "Service Cluster IP: $SERVICE_URL"
+        # Optionally run a small curl test if your service is reachable from runner:
+        # curl --fail http://$SERVICE_URL:80/healthz || exit 1
+
+    - name: Notify on success
+      run: echo "Deployment completed successfully."

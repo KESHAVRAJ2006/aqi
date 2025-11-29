@@ -2,6 +2,7 @@ from fastapi import FastAPI
 import joblib
 import pandas as pd
 from pydantic import BaseModel
+import numpy as np
 
 class Sample(BaseModel):
     PM2_5: float

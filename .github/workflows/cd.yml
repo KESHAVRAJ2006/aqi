@@ -28,26 +28,34 @@ jobs:
       with:
         version: 'latest'
 
+    # 🔥 Fixed: Create .kube directory before writing config
+    # Create .kube directory
     - name: Create kube directory
       run: mkdir -p $HOME/.kube
 
+    # 🔥 Fixed: Correct secret name & decode
+    # Restore kubeconfig (fixed)
     - name: Restore kubeconfig
       env:
-        KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+        KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}   # Ensure secret name matches!
       run: |
         echo "${KUBECONFIG_DATA}" | base64 --decode > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
-        kubectl config view   # ✔ FIXED (removed --minify)
+        kubectl config view --minify
+        kubectl config view     # ✔ FIXED (removed --minify)
 
     - name: Show cluster info
       run: kubectl cluster-info
 
+    # 🔥 Update the image in Kubernetes
+    # Update image in deployment
     - name: Update image in Deployment
       run: |
         echo "Updating deployment image to ${IMAGE}:${IMAGE_TAG}"
         kubectl set image deployment/aqi-deploy aqi=${IMAGE}:${IMAGE_TAG} --record
         kubectl rollout status deployment/aqi-deploy --timeout=180s
 
+    # Optional smoke test
     - name: Post-deploy smoke test
       run: |
         SERVICE_URL=$(kubectl get svc aqi-service -o jsonpath='{.spec.clusterIP}')

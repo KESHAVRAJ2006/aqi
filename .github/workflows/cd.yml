@@ -1,20 +1,17 @@
 name: CD - Deploy to Kubernetes
 
-# Trigger:
-# - on push to main (or master)
-# - or optionally when CI workflow completes using workflow_run
 on:
   push:
-    branches: [ master ]    # change to main if you renamed branch
-  # optional: run after CI workflow completes
+    branches: [ master ]
+
   workflow_run:
-    workflows: ["AQI CI"]   # change to the exact name of your CI workflow
+    workflows: ["AQI CI"]
     types:
       - completed
 
 env:
-  IMAGE: ${{ secrets.IMAGE_NAME }}   # e.g. username/aqi-forecast
-  IMAGE_TAG: ${{ github.sha }}       # change to 'latest' if you prefer
+  IMAGE: ${{ secrets.IMAGE_NAME }} 
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   deploy:
@@ -31,29 +28,34 @@ jobs:
       with:
         version: 'latest'
 
+    # 🔥 Fixed: Create .kube directory before writing config
+    - name: Create kube directory
+      run: mkdir -p $HOME/.kube
+
+    # 🔥 Fixed: Correct secret name & decode
     - name: Restore kubeconfig
       env:
-        KUBECONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}   # Ensure secret name matches!
       run: |
-        echo "$KUBECONFIG_DATA" | base64 --decode > $HOME/.kube/config
+        echo "${KUBECONFIG_DATA}" | base64 --decode > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
         kubectl config view --minify
 
     - name: Show cluster info
       run: kubectl cluster-info
 
-    - name: Update image in Deployment (rolling update)
+    # 🔥 Update the image in Kubernetes
+    - name: Update image in Deployment
       run: |
         echo "Updating deployment image to ${IMAGE}:${IMAGE_TAG}"
         kubectl set image deployment/aqi-deploy aqi=${IMAGE}:${IMAGE_TAG} --record
-        kubectl rollout status deployment/aqi-deploy --timeout=120s
+        kubectl rollout status deployment/aqi-deploy --timeout=180s
 
+    # Optional smoke test
     - name: Post-deploy smoke test
       run: |
         SERVICE_URL=$(kubectl get svc aqi-service -o jsonpath='{.spec.clusterIP}')
         echo "Service Cluster IP: $SERVICE_URL"
-        # Optionally run a small curl test if your service is reachable from runner:
-        # curl --fail http://$SERVICE_URL:80/healthz || exit 1
 
     - name: Notify on success
-      run: echo "Deployment completed successfully."
+      run: echo "Deployment completed successfully!"

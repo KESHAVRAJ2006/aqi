@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import joblib
 import pandas as pd
 from pydantic import BaseModel
-import numpy as np
+import numpy as np1
 
 class Sample(BaseModel):
     PM2_5: float

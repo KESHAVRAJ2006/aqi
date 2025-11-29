@@ -14,21 +14,20 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # ---------- 1. Secret Leak Scanner ----------
+    # ---- Secret leak checking ----
     - name: Secret Scan (Gitleaks)
       uses: gitleaks/gitleaks-action@v2
       with:
-        config-path: ""   # default rules
         verbose: true
 
-    # ---------- 2. Python Dependency Vulnerability Scan ----------
+    # ---- Python dependency CVE scan ----
     - name: Install dependencies
       run: pip install -r requirements.txt
 
     - name: Python Security Scan (pip-audit)
       run: pip install pip-audit && pip-audit
 
-    # ---------- 3. Docker Image Security Scan ----------
+    # ---- Docker image vulnerability scanner ----
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
@@ -43,15 +42,20 @@ jobs:
       with:
         image-ref: "aqi-security-test"
         format: "table"
-        exit-code: 1      # fail pipeline on high severity issues
+        exit-code: 1
         ignore-unfixed: true
 
-    # ---------- 4. Kubernetes Manifest Security Scan ----------
-    - name: K8s Security Scan (kube-score)
-      uses: zegl/kube-score@main
-      with:
-        manifests: "k8s/*.yaml"
+    # ---- Kubernetes manifest security scan (FIXED) ----
+    - name: Install kube-score
+      run: |
+        curl -L https://github.com/zegl/kube-score/releases/latest/download/kube-score_ubuntu_amd64.tar.gz -o kube-score.tar.gz
+        tar -xzf kube-score.tar.gz
+        sudo mv kube-score /usr/local/bin/kube-score
+        kube-score version
 
-    # ---------- 5. Static Code Security Scan (SAST) ----------
+    - name: Run Kubernetes Security Scan
+      run: kube-score score k8s/*.yaml
+
+    # ---- App static code security ----
     - name: Python SAST (Bandit)
       run: pip install bandit && bandit -r .
